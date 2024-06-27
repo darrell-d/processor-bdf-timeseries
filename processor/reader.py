@@ -115,7 +115,7 @@ class NWBElectricalSeriesReader():
         return self._channels
 
     def contiguous_chunks(self):
-        '''
+        """
         Returns a generator of the index ranges for contiguous segments in data.
 
         An index range is of the form [start, end).
@@ -125,7 +125,7 @@ class NWBElectricalSeriesReader():
             sampling_period = 1 / sampling_rate
 
             (timestamp_difference) > 2 * sampling_period
-        '''
+        """
         gap_threshold = (1.0 / self.sampling_rate) * 2
 
         boundaries = np.concatenate(
@@ -135,7 +135,7 @@ class NWBElectricalSeriesReader():
             yield boundaries[i], boundaries[i + 1]
 
     def get_chunk(self, channel_index, start = None, end = None):
-        '''
+        """
         Returns a chunk of sample data from the electrical series
         for the given channel (index)
 
@@ -143,7 +143,7 @@ class NWBElectricalSeriesReader():
 
         The sample data is scaled by the conversion and offset factors
         set in the electrical series.
-        '''
+        """
         scale_factor = self.electrical_series.conversion
 
         if self.electrical_series.channel_conversion:
