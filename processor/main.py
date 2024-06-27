@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     bytes_per_mb = pow(2, 20)
     bytes_per_sample = 8 # 64-bit floating point value
-    chunk_size = int(chunk_size_mb * BYTES_PER_MB / BYTES_PER_SAMPLE)
+    chunk_size = int(chunk_size_mb * bytes_per_mb / bytes_per_sample)
 
     input_files = [
         f.path
