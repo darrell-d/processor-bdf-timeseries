@@ -1,7 +1,8 @@
 import gzip
-import os
+import json
 import logging
 import numpy as np
+import os
 from reader import NWBElectricalSeriesReader
 from utils import to_big_endian
 
@@ -43,7 +44,7 @@ class TimeSeriesChunkWriter:
                     self.write_chunk(chunk, start_time, end_time, channel)
 
         for channel in reader.channels:
-            channel.write(self.output_dir)
+            self.write_channel(channel)
 
     def write_chunk(self, chunk, start_time, end_time, channel):
         """
@@ -60,3 +61,10 @@ class TimeSeriesChunkWriter:
 
         with gzip.open(file_path, 'wb') as f:
             f.write(formatted_data)
+
+    def write_channel(self, channel):
+        file_name = f'channel-{channel.index:05d}.json'
+        file_path = os.path.join(self.output_dir, file_name)
+
+        with open(file_path, 'w') as file:
+            json.dump(channel.as_dict(), file)

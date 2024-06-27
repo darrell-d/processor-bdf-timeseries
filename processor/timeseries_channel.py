@@ -1,4 +1,3 @@
-import json
 import os
 import uuid
 
@@ -25,9 +24,6 @@ class TimeSeriesChannel:
         self.last_annot = 0
         self.properties = []
 
-        file_suffix = '-{index:05d}'.format(index=index)
-        self.filename = 'channel{}.json'.format(file_suffix)
-
     def as_dict(self):
         resp = {
             'name':  self.name,
@@ -45,8 +41,3 @@ class TimeSeriesChannel:
             resp['id'] = self.id
 
         return resp
-
-    def write(self, output_dir):
-        output_file = os.path.join(output_dir, self.filename)
-        with open(output_file, 'w') as file:
-            json.dump(self.as_dict(), file)
