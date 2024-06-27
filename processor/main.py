@@ -35,7 +35,7 @@ if __name__ == "__main__":
         if len(electrical_series) > 1:
             log.warn('NWB file has multiple raw electrical series acquisitions')
 
-        writer = TimeSeriesChunkWriter(nwb.session_start_time, output_dir, chunk_size)
+        chunked_writer = TimeSeriesChunkWriter(nwb.session_start_time, output_dir, chunk_size)
 
         for series in electrical_series:
-            writer.write_electrical_series(series)
+            chunked_writer.write_electrical_series(series)

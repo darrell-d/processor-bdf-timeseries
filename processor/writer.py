@@ -7,17 +7,16 @@ from utils import to_big_endian
 
 log = logging.getLogger()
 
-class TimeSeriesChunkWriter():
+class TimeSeriesChunkWriter:
     """
     Attributes:
-        session_start_time_secs (float): time (in seconds) since the epoch (i.e. Unix time)
         output_dir (str): path to output directory for chunked sample data binary files
         chunk_size (int): number of samples (rounded down) to include in a single chunked sample data binary file (pre-compression)
             each sample is represented as a 64-bit (8 byte) floating-point value
     """
 
     def __init__(self, session_start_time, output_dir, chunk_size):
-        self.session_start_time_secs = session_start_time.timestamp()
+        self.session_start_time = session_start_time
         self.output_dir = output_dir
         self.chunk_size = chunk_size
 
@@ -29,19 +28,22 @@ class TimeSeriesChunkWriter():
 
         Writes each chunk to the given output directory
         """
-        reader = NWBElectricalSeriesReader(electrical_series)
+        reader = NWBElectricalSeriesReader(electrical_series, self.session_start_time)
 
         for contiguous_start, contiguous_end in reader.contiguous_chunks():
             for chunk_start in range(contiguous_start, contiguous_end, self.chunk_size):
                 chunk_end = min(contiguous_end, chunk_start + self.chunk_size)
 
-                start_time = reader.timestamps[chunk_start] + self.session_start_time_secs
-                end_time = reader.timestamps[chunk_end-1] + self.session_start_time_secs
+                start_time = reader.timestamps[chunk_start]
+                end_time = reader.timestamps[chunk_end-1]
 
                 for channel_index in range(len(reader.channels)):
                     chunk = reader.get_chunk(channel_index, chunk_start, chunk_end)
                     channel = reader.channels[channel_index]
                     self.write_chunk(chunk, start_time, end_time, channel)
+
+        for channel in reader.channels:
+            channel.write(self.output_dir)
 
     def write_chunk(self, chunk, start_time, end_time, channel):
         """
@@ -52,7 +54,8 @@ class TimeSeriesChunkWriter():
         # ensure the samples are 64-bit float-pointing numbers in big-endian before converting to bytes
         formatted_data = to_big_endian(chunk.astype(np.float64)) 
 
-        file_name = "{}_{}_{}.bfts.gz".format(channel.id, int(start_time), int(end_time))
+        channel_index = '{index:05d}'.format(index=channel.index)
+        file_name = "channel-{}_{}_{}.bfts.gz".format(channel_index, int(start_time * 1e6), int(end_time * 1e6))
         file_path = os.path.join(self.output_dir, file_name)
 
         with gzip.open(file_path, 'wb') as f:

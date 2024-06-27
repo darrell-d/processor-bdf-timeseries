@@ -1,14 +1,14 @@
 import logging
 import numpy as np
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from pynwb.ecephys import ElectricalSeries
 from timeseries_channel import TimeSeriesChannel
 from utils import infer_sampling_rate
 
 log = logging.getLogger()
 
-class NWBElectricalSeriesReader():
+class NWBElectricalSeriesReader:
     """
     Wrapper class around the NWB ElectricalSeries object.
 
@@ -23,15 +23,19 @@ class NWBElectricalSeriesReader():
         channels (list[TimeSeriesChannel]): list of channels and their respective metadata
     """
 
-    def __init__(self, electrical_series):
+    def __init__(self, electrical_series, session_start_time):
         self.electrical_series = electrical_series
+        self.session_start_time_secs = session_start_time.timestamp()
         self.num_samples, self.num_channels = self.electrical_series.data.shape
 
+        assert self.num_samples > 0, 'Electrical series has no sample data'
         assert len(self.electrical_series.electrodes.table) == self.num_channels, 'Electrode channels do not align with data shape'
 
         self._sampling_rate = None
         self._timestamps = None
         self._compute_sampling_rate_and_timestamps()
+
+        assert self.num_samples == len(self.timestamps), "Differing number of sample and timestamp value"
 
         self._channels = None
 
@@ -66,20 +70,20 @@ class NWBElectricalSeriesReader():
                 # error is greater than 2%
                 raise Exception("Inferred rate from timestamps ({inferred_rate:.4f}) does not match given rate ({given_rate:.4f})." \
                         .format(inferred_rate=inferred_sampling_rate, given_rate=sampling_rate))
-            else:
-                self._sampling_rate = sampling_rate
-                self._timestamps = timestamps
 
         # if only the rate is given, calculate the timestamps for the samples
         # using the given number of samples (size of the data)
         if self.electrical_series.rate:
-            self._sampling_rate = self.electrical_series.rate
-            self._timestamps = np.linspace(0, self.num_samples / self.sampling_rate, self.num_samples, endpoint = False)
+            sampling_rate = self.electrical_series.rate
+            timestamps = np.linspace(0, self.num_samples / sampling_rate, self.num_samples, endpoint = False)
 
         # if only the timestamps are given, calculate the sampling rate using the timestamps
         if self.electrical_series.timestamps:
-            self._timestamps = self.electrical_series.timestamps
-            self._sampling_rate = round(infer_sampling_rate(self._timestamps))
+            timestamps = self.electrical_series.timestamps
+            sampling_rate = round(infer_sampling_rate(self._timestamps))
+
+        self._sampling_rate = sampling_rate
+        self._timestamps = timestamps + self.session_start_time_secs
 
     @property
     def timestamps(self):
@@ -93,20 +97,29 @@ class NWBElectricalSeriesReader():
     def channels(self):
         if not self._channels:
             channels = list()
-            for electrode in self.electrical_series.electrodes:
+            for index, electrode in enumerate(self.electrical_series.electrodes):
                 name = ""
                 if isinstance(electrode, DataFrame):
                     if 'channel_name' in electrode:
                         name = electrode['channel_name']
                     elif 'label' in electrode:
                         name = electrode['label']
-                    else:
-                        name = electrode.iloc[0].name
 
+                if isinstance(name, Series):
+                    name = name.iloc[0]
+
+                group_name = electrode.group_name
+                if isinstance(group_name, Series):
+                    group_name = group_name.iloc[0]
 
                 channels.append(
                         TimeSeriesChannel(
-                            name = name
+                            index = index,
+                            name = name,
+                            rate = self.sampling_rate,
+                            start = self.timestamps[0] , # safe access gaurenteed by initialization assertions
+                            end = self.timestamps[-1],
+                            group = group_name
                         )
                     )
 
