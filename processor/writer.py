@@ -56,7 +56,7 @@ class TimeSeriesChunkWriter:
         formatted_data = to_big_endian(chunk.astype(np.float64)) 
 
         channel_index = '{index:05d}'.format(index=channel.index)
-        file_name = "channel-{}_{}_{}.bfts.gz".format(channel_index, int(start_time * 1e6), int(end_time * 1e6))
+        file_name = "channel-{}_{}_{}.bin.gz".format(channel_index, int(start_time * 1e6), int(end_time * 1e6))
         file_path = os.path.join(self.output_dir, file_name)
 
         with gzip.open(file_path, 'wb') as f:

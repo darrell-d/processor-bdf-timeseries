@@ -13,6 +13,6 @@ def infer_sampling_rate(timestamps):
 
 def to_big_endian(data):
     if data.dtype.byteorder == '<' or (data.dtype.byteorder == '=' and sys.byteorder == 'little'):
-        return data.byteswap(True).newbyteorder()
+        return data.byteswap(True).view(data.dtype.newbyteorder())
     else:
         return data
