@@ -52,5 +52,7 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
         upload_url = import_client.get_presign_url(session_token, import_id, integration.dataset_id, timeseries_file.upload_key)
         with open(timeseries_file.file_path, 'rb') as f:
             response = requests.put(upload_url, data=f)
+
     with ThreadPoolExecutor() as executor:
-        executor.map(upload_timeseries_file, timeseries_files)
+        # wrapping in a list forces the executor to wait for all threads to finish uploading time series files
+        list(executor.map(upload_timeseries_file, timeseries_files))
