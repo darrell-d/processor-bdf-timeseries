@@ -1,2 +1,4 @@
 numpy
 pynwb
+requests
+boto3

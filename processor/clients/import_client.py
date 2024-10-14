@@ -1,0 +1,71 @@
+import requests
+import json
+import logging
+
+log = logging.getLogger()
+
+class ImportFile:
+    def __init__(self, upload_key, file_path):
+        self.upload_key=upload_key
+        self.file_path=file_path
+    def __repr__(self):
+        return f"ImportFile(upload_key={self.upload_key}, file_path={self.file_path})"
+
+class ImportClient:
+    def __init__(self, api_host):
+        self.api_host = api_host
+
+    def create(self, session_token, integration_id, dataset_id, package_id, timeseries_files):
+        url = f"{self.api_host}/import?dataset_id={dataset_id}"
+
+        headers = {
+            "Content-type": "application/json",
+            "Authorization": f"Bearer {session_token}"
+        }
+
+        body = {
+            "integration_id": integration_id,
+            "package_id": package_id,
+            "import_type": "timeseries",
+            "files": [{"upload_key": str(file.upload_key), "file_path": file.file_path} for file in timeseries_files]
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            data = response.json()
+
+            return data['id']
+        except requests.HTTPError as e:
+            log.error(f"failed to create import with error: {e}")
+            raise e
+        except json.JSONDecodeError as e:
+            log.error(f"failed to decode import response with error: {e}")
+            raise e
+        except Exception as e:
+            log.error(f"failed to get import with error: {e}")
+            raise e
+
+    def get_presign_url(self, session_token, import_id, dataset_id, upload_key):
+        url = f"{self.api_host}/import/{import_id}/upload/{upload_key}/presign?dataset_id={dataset_id}"
+
+        headers = {
+            "Content-type": "application/json",
+            "Authorization": f"Bearer {session_token}"
+        }
+
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+            return data["url"]
+        except requests.HTTPError as e:
+            log.error(f"failed to generate pre-sign URL for import file with error: {e}")
+            raise e
+        except json.JSONDecodeError as e:
+            log.error(f"failed to decode pre-sign URL response with error: {e}")
+            raise e
+        except Exception as e:
+            log.error(f"failed to generate pre-sign URL for import file with error: {e}")
+            raise e
