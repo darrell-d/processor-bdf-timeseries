@@ -37,15 +37,7 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
 
     # fetch integration for parameters (dataset_id, package_id, etc.)
     integration_client = IntegrationClient(api_host)
-    # TODO swap back
-    # integration  = integration_client.get_integration(session_token, integration_id)
-    integration = Integration(
-        id=integration_id,
-        application_id=integration_id,
-        dataset_id="N:dataset:3c10091e-4ef8-45ac-b3ae-4497eb34c7dc",
-        package_ids=["N:package:d6b85b8c-9ca2-48bb-8e18-09199e0ac377"],
-        params=dict()
-    )
+    integration  = integration_client.get_integration(session_token, integration_id)
 
     # constraint until we implement (upstream) performing imports over directories
     # and specifying how to group time series files together into an imported package
