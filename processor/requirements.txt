@@ -2,3 +2,4 @@ numpy
 pynwb
 requests
 boto3
+backoff

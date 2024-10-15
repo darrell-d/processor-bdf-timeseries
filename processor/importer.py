@@ -1,3 +1,4 @@
+import backoff
 import logging
 import os
 import requests
@@ -10,6 +11,9 @@ from clients import IntegrationClient, Integration
 from constants import TIME_SERIES_BINARY_FILE_EXTENSION, TIME_SERIES_METADATA_FILE_EXTENSION
 
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Value, Lock
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 log = logging.getLogger()
 
@@ -47,12 +51,38 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
     import_client = ImportClient(api_host)
     import_id = import_client.create(session_token, integration.id, integration.dataset_id, integration.package_ids[0], timeseries_files)
 
-    # upload time series files to Pennsieve S3 import bucket
-    def upload_timeseries_file(timeseries_file):
-        upload_url = import_client.get_presign_url(session_token, import_id, integration.dataset_id, timeseries_file.upload_key)
-        with open(timeseries_file.file_path, 'rb') as f:
-            response = requests.put(upload_url, data=f)
+    log.info(f"import_id={import_id} found {len(timeseries_files)} time series files for upload")
 
-    with ThreadPoolExecutor() as executor:
+    # track time series file upload count
+    upload_counter = Value('i', 0)
+    upload_counter_lock = Lock()
+
+    # upload time series files to Pennsieve S3 import bucket
+    @backoff.on_exception(
+        backoff.expo,
+        requests.exceptions.RequestException,
+        max_tries=5
+    )
+    def upload_timeseries_file(timeseries_file):
+        try:
+            with upload_counter_lock:
+                log.info(f"import_id={import_id} upload_key={timeseries_file.upload_key} uploading {upload_counter.value}/{len(timeseries_files)} {timeseries_file.file_path}")
+            upload_url = import_client.get_presign_url(session_token, import_id, integration.dataset_id, timeseries_file.upload_key)
+            with open(timeseries_file.file_path, 'rb') as f:
+                response = requests.put(upload_url, data=f)
+                response.raise_for_status()  # raise an error if the request failed
+            with upload_counter_lock:
+                upload_counter.value += 1
+            return True
+        except Exception as e:
+            log.error(f"import_id={import_id} upload_key={timeseries_file.upload_key} failed to upload {timeseries_file.file_path}: %s", e)
+            raise e
+
+    successful_uploads = list()
+    with ThreadPoolExecutor(max_workers=4) as executor:
         # wrapping in a list forces the executor to wait for all threads to finish uploading time series files
-        list(executor.map(upload_timeseries_file, timeseries_files))
+        successful_uploads = list(executor.map(upload_timeseries_file, timeseries_files))
+
+    log.info(f"import_id={import_id} uploaded {upload_counter.value} time series files")
+
+    assert sum(successful_uploads) == len(timeseries_files), "Failed to upload all time series files"
