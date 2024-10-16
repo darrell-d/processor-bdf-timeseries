@@ -34,6 +34,8 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
                 timeseries_files.append(
                     ImportFile(upload_key=uuid.uuid4(), file_path=os.path.join(root, file))
                 )
+    if len(timeseries_files) == 0:
+        return None
 
     # authentication against the Pennsieve API
     authorization_client = AuthenticationClient(authentication_host)
@@ -51,7 +53,7 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
     import_client = ImportClient(api_host)
     import_id = import_client.create(session_token, integration.id, integration.dataset_id, integration.package_ids[0], timeseries_files)
 
-    log.info(f"import_id={import_id} found {len(timeseries_files)} time series files for upload")
+    log.info(f"import_id={import_id} initialized import with {len(timeseries_files)} time series files for upload")
 
     # track time series file upload count
     upload_counter = Value('i', 0)
