@@ -3,6 +3,8 @@ import json
 import logging
 import numpy as np
 import os
+
+from constants import TIME_SERIES_BINARY_FILE_EXTENSION, TIME_SERIES_METADATA_FILE_EXTENSION
 from reader import NWBElectricalSeriesReader
 from utils import to_big_endian
 
@@ -56,14 +58,14 @@ class TimeSeriesChunkWriter:
         formatted_data = to_big_endian(chunk.astype(np.float64)) 
 
         channel_index = '{index:05d}'.format(index=channel.index)
-        file_name = "channel-{}_{}_{}.bin.gz".format(channel_index, int(start_time * 1e6), int(end_time * 1e6))
+        file_name = "channel-{}_{}_{}{}".format(channel_index, int(start_time * 1e6), int(end_time * 1e6), TIME_SERIES_BINARY_FILE_EXTENSION)
         file_path = os.path.join(self.output_dir, file_name)
 
         with gzip.open(file_path, 'wb') as f:
             f.write(formatted_data)
 
     def write_channel(self, channel):
-        file_name = f'channel-{channel.index:05d}.json'
+        file_name = f'channel-{channel.index:05d}{TIME_SERIES_METADATA_FILE_EXTENSION}'
         file_path = os.path.join(self.output_dir, file_name)
 
         with open(file_path, 'w') as file:
