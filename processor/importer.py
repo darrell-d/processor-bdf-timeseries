@@ -49,6 +49,8 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
     # and specifying how to group time series files together into an imported package
     assert len(integration.package_ids) == 1, "NWB post processor only supports a single package for import"
 
+    log.info(f"dataset_id={integration.dataset_id} package_id={integration.package_ids[0]} starting import of time series files")
+
     # initialize import
     import_client = ImportClient(api_host)
     import_id = import_client.create(session_token, integration.id, integration.dataset_id, integration.package_ids[0], timeseries_files)
