@@ -6,7 +6,7 @@ import uuid
 
 from clients import AuthenticationClient
 from clients import ImportClient, ImportFile
-from clients import IntegrationClient, Integration
+from clients import WorkflowClient, WorkflowInstance
 
 from constants import TIME_SERIES_BINARY_FILE_EXTENSION, TIME_SERIES_METADATA_FILE_EXTENSION
 
@@ -25,7 +25,7 @@ for import into Pennsieve data ecosystem.
 # easily able to handle > 3 processors
 """
 
-def import_timeseries(authentication_host, api_host, api_key, api_secret, integration_id, file_directory):
+def import_timeseries(authentication_host, api_host, api_key, api_secret, workflow_instance_id, file_directory):
     # gather all the time series files from the output directory
     timeseries_files = []
     for root, _, files in os.walk(file_directory):
@@ -41,19 +41,26 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
     authorization_client = AuthenticationClient(authentication_host)
     session_token = authorization_client.authenticate(api_key, api_secret)
 
-    # fetch integration for parameters (dataset_id, package_id, etc.)
-    integration_client = IntegrationClient(api_host)
-    integration  = integration_client.get_integration(session_token, integration_id)
+    # fetch workflow instance for parameters (dataset_id, package_id, etc.)
+    # workflow_client = WorkflowClient(api_host)
+    # workflow_instance  = workflow_client.get_workflow_instance(session_token, workflow_instance_id)
+    workflow_instance = WorkflowInstance(
+        id=workflow_instance_id,
+        application_id=workflow_instance_id,
+        dataset_id="N:dataset:25967e2b-ad0b-418f-8b8b-46079a85a561",
+        package_ids=["N:package:c0c9df5d-240e-4044-b6a6-b9e23aea36fb"],
+        params=dict()
+    )
 
     # constraint until we implement (upstream) performing imports over directories
     # and specifying how to group time series files together into an imported package
-    assert len(integration.package_ids) == 1, "NWB post processor only supports a single package for import"
+    assert len(workflow_instance.package_ids) == 1, "NWB post processor only supports a single package for import"
 
-    log.info(f"dataset_id={integration.dataset_id} package_id={integration.package_ids[0]} starting import of time series files")
+    log.info(f"dataset_id={workflow_instance.dataset_id} package_id={workflow_instance.package_ids[0]} starting import of time series files")
 
     # initialize import
     import_client = ImportClient(api_host)
-    import_id = import_client.create(session_token, integration.id, integration.dataset_id, integration.package_ids[0], timeseries_files)
+    import_id = import_client.create(session_token, workflow_instance.id, workflow_instance.dataset_id, workflow_instance.package_ids[0], timeseries_files)
 
     log.info(f"import_id={import_id} initialized import with {len(timeseries_files)} time series files for upload")
 
@@ -71,7 +78,7 @@ def import_timeseries(authentication_host, api_host, api_key, api_secret, integr
         try:
             with upload_counter_lock:
                 log.info(f"import_id={import_id} upload_key={timeseries_file.upload_key} uploading {upload_counter.value}/{len(timeseries_files)} {timeseries_file.file_path}")
-            upload_url = import_client.get_presign_url(session_token, import_id, integration.dataset_id, timeseries_file.upload_key)
+            upload_url = import_client.get_presign_url(session_token, import_id, workflow_instance.dataset_id, timeseries_file.upload_key)
             with open(timeseries_file.file_path, 'rb') as f:
                 response = requests.put(upload_url, data=f)
                 response.raise_for_status()  # raise an error if the request failed
