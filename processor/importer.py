@@ -70,17 +70,18 @@ def import_timeseries(api_host, api2_host, api_key, api_secret, workflow_instanc
     channels = {}
     for file_path in timeseries_channel_files:
         channel_index = channel_index_pattern.search(os.path.basename(file_path)).group(1)
+
         with open(file_path, 'r') as file:
-            ch = TimeSeriesChannel.from_dict(json.load(file))
-            log.info(f"channel read with start={ch.start} end={ch.end}")
-            channel = next((channel for channel in existing_channels if channel == ch), None)
-            if channel is not None:
-                log.info(f"package_id={package_id} channel_id={channel.id} found existing package channel: {channel.name}")
-            else:
-                channel = timeseries_client.create_channel(session_token, package_id, ch)
-                log.info(f"package_id={package_id} channel_id={channel.id} created new time series channel: {channel.name}")
-            channel.index = channel_index
-            channels[channel_index] = channel
+            local_channel = TimeSeriesChannel.from_dict(json.load(file))
+
+        channel = next((existing_channel for existing_channel in existing_channels if existing_channel == local_channel), None)
+        if channel is not None:
+            log.info(f"package_id={package_id} channel_id={channel.id} found existing package channel: {channel.name}")
+        else:
+            channel = timeseries_client.create_channel(session_token, package_id, local_channel)
+            log.info(f"package_id={package_id} channel_id={channel.id} created new time series channel: {channel.name}")
+        channel.index = channel_index
+        channels[channel_index] = channel
 
     # (to match the currently existing pattern)
     # replace the prefix on the time series binary data chunk file name with the channel node ID e.g.
