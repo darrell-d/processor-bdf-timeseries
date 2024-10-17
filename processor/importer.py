@@ -52,14 +52,7 @@ def import_timeseries(api_host, api2_host, api_key, api_secret, workflow_instanc
 
     # fetch workflow instance for parameters (dataset_id, package_id, etc.)
     workflow_client = WorkflowClient(api2_host)
-    # workflow_instance  = workflow_client.get_workflow_instance(session_token, workflow_instance_id)
-    workflow_instance = WorkflowInstance(
-        id = workflow_instance_id,
-        application_id = workflow_instance_id,
-        dataset_id = "N:dataset:3c10091e-4ef8-45ac-b3ae-4497eb34c7dc",
-        package_ids = ["N:package:ee5534ca-8c32-405b-bcb1-cab2c55c59bd"],
-        params = []
-    )
+    workflow_instance  = workflow_client.get_workflow_instance(session_token, workflow_instance_id)
 
     # constraint until we implement (upstream) performing imports over directories
     # and specifying how to group time series files together into an imported package
