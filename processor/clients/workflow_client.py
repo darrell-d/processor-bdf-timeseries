@@ -5,9 +5,8 @@ import logging
 log = logging.getLogger()
 
 class WorkflowInstance:
-    def __init__(self, id, application_id, dataset_id, package_ids, params):
+    def __init__(self, id, dataset_id, package_ids, params):
         self.id = id
-        self.application_id = application_id
         self.dataset_id = dataset_id
         self.package_ids = package_ids
         self.params = params
@@ -33,7 +32,6 @@ class WorkflowClient:
 
             workflow_instance = WorkflowInstance(
                 id=data["uuid"],
-                application_id=data["applicationId"],
                 dataset_id=data["datasetId"],
                 package_ids=data["packageIds"],
                 params=data["params"]
