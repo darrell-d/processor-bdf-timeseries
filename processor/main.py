@@ -19,11 +19,16 @@ if __name__ == "__main__":
     bytes_per_sample = 8 # 64-bit floating point value
     chunk_size = int(config.CHUNK_SIZE_MB * bytes_per_mb / bytes_per_sample)
 
+    log.info(f"INPUT_DIR={config.INPUT_DIR} | OUTPUT_DIR={config.OUTPUT_DIR}")
+
     input_files = [
         f.path
         for f in os.scandir(config.INPUT_DIR)
         if f.is_file() and os.path.splitext(f.name)[1].lower() == '.nwb'
     ]
+
+    for file in input_files:
+        log.info(f"INPUT FILE: {file}")
 
     assert len(input_files) == 1, "NWB post processor only supports a single file as input"
 
