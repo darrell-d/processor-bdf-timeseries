@@ -5,11 +5,10 @@ import logging
 log = logging.getLogger()
 
 class WorkflowInstance:
-    def __init__(self, id, dataset_id, package_ids, params):
+    def __init__(self, id, dataset_id, package_ids):
         self.id = id
         self.dataset_id = dataset_id
         self.package_ids = package_ids
-        self.params = params
 
 class WorkflowClient:
     def __init__(self, api_host):
@@ -34,10 +33,9 @@ class WorkflowClient:
                 id=data["uuid"],
                 dataset_id=data["datasetId"],
                 package_ids=data["packageIds"],
-                params=data["params"]
             )
 
-            return workflow_instance_id
+            return workflow_instance
         except requests.HTTPError as e:
             log.error(f"failed to fetch workflow instance with error: {e}")
             raise e
