@@ -2,20 +2,24 @@ import requests
 import json
 import logging
 
+from .base_client import BaseClient
 from processor.timeseries_channel import TimeSeriesChannel
 
 log = logging.getLogger()
 
-class TimeSeriesClient:
-    def __init__(self, api_host):
+class TimeSeriesClient(BaseClient):
+    def __init__(self, api_host, session_manager):
+        super().__init__(session_manager)
+
         self.api_host = api_host
 
-    def create_channel(self, session_token, package_id, channel):
+    @BaseClient.retry_with_refresh
+    def create_channel(self, package_id, channel):
         url = f"{self.api_host}/timeseries/{package_id}/channels"
 
         headers = {
             "Content-type": "application/json",
-            "Authorization": f"Bearer {session_token}"
+            "Authorization": f"Bearer {self.session_manager.session_token}"
         }
 
         body = channel.as_dict()
@@ -39,12 +43,13 @@ class TimeSeriesClient:
             log.error("failed to create time series channel: %s", e)
             raise e
 
-    def get_package_channels(self, session_token, package_id):
+    @BaseClient.retry_with_refresh
+    def get_package_channels(self, package_id):
         url = f"{self.api_host}/timeseries/{package_id}/channels"
 
         headers = {
             "Content-type": "application/json",
-            "Authorization": f"Bearer {session_token}"
+            "Authorization": f"Bearer {self.session_manager.session_token}"
         }
 
         try:
@@ -62,7 +67,7 @@ class TimeSeriesClient:
 
             return channels
         except requests.HTTPError as e:
-            log.error("failed to fetch time series channels for package %s: %s", packge_id, e)
+            log.error("failed to fetch time series channels for package %s: %s", package_id, e)
             raise e
         except json.JSONDecodeError as e:
             log.error("failed to decode time series package channels response: %s", e)

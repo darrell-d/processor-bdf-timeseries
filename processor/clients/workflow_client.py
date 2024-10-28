@@ -2,6 +2,8 @@ import requests
 import json
 import logging
 
+from .base_client import BaseClient
+
 log = logging.getLogger()
 
 class WorkflowInstance:
@@ -10,18 +12,21 @@ class WorkflowInstance:
         self.dataset_id = dataset_id
         self.package_ids = package_ids
 
-class WorkflowClient:
-    def __init__(self, api_host):
+class WorkflowClient(BaseClient):
+    def __init__(self, api_host, session_manager):
+        super().__init__(session_manager)
+
         self.api_host = api_host
 
     # NOTE: workflows API currently returns a 200 response
     #       with an empty body even when a workflow instance does not exist
-    def get_workflow_instance(self, session_token, workflow_instance_id):
+    @BaseClient.retry_with_refresh
+    def get_workflow_instance(self, workflow_instance_id):
         url = f"{self.api_host}/workflows/instances/{workflow_instance_id}"
 
         headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {session_token}"
+            "Authorization": f"Bearer {self.session_manager.session_token}"
         }
 
         try:

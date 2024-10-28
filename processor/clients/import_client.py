@@ -2,6 +2,8 @@ import requests
 import json
 import logging
 
+from .base_client import BaseClient
+
 log = logging.getLogger()
 
 class ImportFile:
@@ -12,16 +14,19 @@ class ImportFile:
     def __repr__(self):
         return f"ImportFile(upload_key={self.upload_key}, file_path={self.file_path}, local_path={self.local_path})"
 
-class ImportClient:
-    def __init__(self, api_host):
+class ImportClient(BaseClient):
+    def __init__(self, api_host, session_manager):
+        super().__init__(session_manager)
+
         self.api_host = api_host
 
-    def create(self, session_token, integration_id, dataset_id, package_id, timeseries_files):
+    @BaseClient.retry_with_refresh
+    def create(self, integration_id, dataset_id, package_id, timeseries_files):
         url = f"{self.api_host}/import?dataset_id={dataset_id}"
 
         headers = {
             "Content-type": "application/json",
-            "Authorization": f"Bearer {session_token}"
+            "Authorization": f"Bearer {self.session_manager.session_token}"
         }
 
         body = {
@@ -47,12 +52,13 @@ class ImportClient:
             log.error(f"failed to get import with error: {e}")
             raise e
 
-    def get_presign_url(self, session_token, import_id, dataset_id, upload_key):
+    @BaseClient.retry_with_refresh
+    def get_presign_url(self, import_id, dataset_id, upload_key):
         url = f"{self.api_host}/import/{import_id}/upload/{upload_key}/presign?dataset_id={dataset_id}"
 
         headers = {
             "Content-type": "application/json",
-            "Authorization": f"Bearer {session_token}"
+            "Authorization": f"Bearer {self.session_manager.session_token}"
         }
 
         try:
