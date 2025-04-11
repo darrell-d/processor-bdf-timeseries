@@ -5,12 +5,23 @@ import logging
 log = logging.getLogger()
 
 class BDFElectricalSeriesReader:
-    def __init__(self, edf_reader, session_start_time):
-        self.reader = edf_reader
+    """
+    BDF Reader : Wraps PyEDFLib
+
+    Attributes:
+        num_samples(int): Number of samples per-channel
+        num_channels (int): Number of channels
+        sampling_rate (int): Sampling rate (in Hz) either given by the raw file or calculated from given timestamp values
+        timestamps (int): Timestamps (offset seconds from 0) either given by the raw file or calculated from given sampling rate
+        channels (list[TimeSeriesChannel]): list of channels and their respective metadata
+    """
+    def __init__(self, edf, session_start_time):
+
+        self.edf = edf
         self.session_start_time_secs = session_start_time.timestamp()
-        self.num_channels = self.reader.signals_in_file
-        self.num_samples = self.reader.getNSamples()[0]
-        self.sampling_rate = self.reader.getSampleFrequency(0)
+        self.num_channels = self.edf.signals_in_file
+        self.num_samples = self.edf.getNSamples()[0] #Assume same sample coun across all channels
+        self.sampling_rate = self.edf.getSampleFrequency(0) #Assume same frequency across all channels
 
         self._timestamps = np.linspace(
             0, self.num_samples / self.sampling_rate, self.num_samples, endpoint=False
@@ -18,13 +29,12 @@ class BDFElectricalSeriesReader:
 
         self._channels = None
 
-        # Gather scaling info per channel
         self.scale_info = []
         for ch in range(self.num_channels):
-            dmin = self.reader.getDigitalMinimum(ch)
-            dmax = self.reader.getDigitalMaximum(ch)
-            pmin = self.reader.getPhysicalMinimum(ch)
-            pmax = self.reader.getPhysicalMaximum(ch)
+            dmin = self.edf.getDigitalMinimum(ch)
+            dmax = self.edf.getDigitalMaximum(ch)
+            pmin = self.edf.getPhysicalMinimum(ch)
+            pmax = self.edf.getPhysicalMaximum(ch)
             self.scale_info.append((dmin, dmax, pmin, pmax))
 
     @property
@@ -34,9 +44,9 @@ class BDFElectricalSeriesReader:
     @property
     def channels(self):
         if self._channels is None:
-            self._channels = []
+            self._channels = list()
             for ch in range(self.num_channels):
-                label = self.reader.getLabel(ch)
+                label = self.edf.getLabel(ch)
                 self._channels.append(
                     TimeSeriesChannel(
                         index=ch,
@@ -50,26 +60,30 @@ class BDFElectricalSeriesReader:
         return self._channels
 
     def contiguous_chunks(self):
+        """
+        Returns a generator of the index ranges for contiguous segments in data.
+
+        An index range is of the form [start, end).
+
+        Boundaries are identified as follows:
+
+            sampling_period = 1 / sampling_rate
+
+            (timestamp_difference) > 2 * sampling_period
+        """
         gap_threshold = (1.0 / self.sampling_rate) * 2
+
         boundaries = np.concatenate(
-            ([0], (np.diff(self.timestamps) > gap_threshold).nonzero()[0] + 1, [len(self.timestamps)])
-        )
-        for i in range(len(boundaries) - 1):
+            ([0], (np.diff(self.timestamps) > gap_threshold).nonzero()[0] + 1, [len(self.timestamps)]))
+
+        for i in np.arange(len(boundaries)-1):
             yield boundaries[i], boundaries[i + 1]
 
     def get_chunk(self, channel_index, start=None, end=None):
-        """
-        Reads raw digital samples and scales to physical values using per-channel conversion
-        """
         if start is None:
             start = 0
         if end is None:
             end = self.num_samples
 
-        raw = self.reader.readSignal(channel_index)[start:end]
-
-        dmin, dmax, pmin, pmax = self.scale_info[channel_index]
-        scale = (pmax - pmin) / (dmax - dmin)
-        physical = (raw - dmin) * scale + pmin
-
-        return physical
+        raw = self.edf.readSignal(channel_index)[start:end]
+        return raw

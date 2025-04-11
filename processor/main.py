@@ -28,11 +28,13 @@ if __name__ == "__main__":
         if f.is_file() and os.path.splitext(f.name)[1].lower() == '.bdf'
     ]
 
-    assert len(input_files) == 1, "NWB post processor only supports a single file as input"
+    assert len(input_files) == 1, "BDF post processor only supports a single file as input"
 
     with pyedflib.EdfReader(input_files[0]) as edf:
 
         start_datetime = edf.getStartdatetime()
+
+        # Stop timezone warning. Explicity set tz to UTC
         session_start_time = start_datetime.replace(tzinfo=timezone.utc)
 
         reader = BDFElectricalSeriesReader(edf, session_start_time)
