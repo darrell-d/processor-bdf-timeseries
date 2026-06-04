@@ -18,11 +18,13 @@ class WorkflowClient(BaseClient):
 
         self.api_host = api_host
 
-    # NOTE: workflows API currently returns a 200 response
-    #       with an empty body even when a workflow instance does not exist
+    # The processor receives the executionRunId via WORKFLOW_INSTANCE_ID (a legacy
+    # alias set by the Step Function). Fetch the run and flatten its dataSources
+    # into a single package_ids list so downstream code can keep using the same
+    # WorkflowInstance shape.
     @BaseClient.retry_with_refresh
     def get_workflow_instance(self, workflow_instance_id):
-        url = f"{self.api_host}/workflows/instances/{workflow_instance_id}"
+        url = f"{self.api_host}/compute/workflows/runs/{workflow_instance_id}"
 
         headers = {
             "Accept": "application/json",
@@ -34,10 +36,14 @@ class WorkflowClient(BaseClient):
             response.raise_for_status()
             data = response.json()
 
+            package_ids = []
+            for source in (data.get("dataSources") or {}).values():
+                package_ids.extend(source.get("packageIds") or [])
+
             workflow_instance = WorkflowInstance(
                 id=data["uuid"],
                 dataset_id=data["datasetId"],
-                package_ids=data["packageIds"],
+                package_ids=package_ids,
             )
 
             return workflow_instance

@@ -2,12 +2,15 @@ import os
 import logging
 import pyedflib
 from datetime import timezone
+from annotation_extractor import *
+
+from pynwb import NWBHDF5IO
+from pynwb.ecephys import ElectricalSeries
 
 from config import Config
 from importer import import_timeseries
 from writer import TimeSeriesChunkWriter
 from bdf_reader import BDFElectricalSeriesReader
-from annotation_extractor import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -25,8 +28,8 @@ if __name__ == "__main__":
         for f in os.scandir(config.INPUT_DIR)
         if f.is_file() and os.path.splitext(f.name)[1].lower() == '.bdf'
     ]
+    print(f"BDF input_files: {input_files}")
 
-    assert len(input_files) == 1, "BDF post processor only supports a single file as input"
 
     with pyedflib.EdfReader(input_files[0]) as edf:
 
@@ -44,6 +47,16 @@ if __name__ == "__main__":
     # note: this will be moved to a separated post-processor once the analysis pipeline is more
     # easily able to handle > 3 processors
     if config.IMPORTER_ENABLED:
-        importer = import_timeseries(config.API_HOST, config.API_HOST2, config.API_KEY, config.API_SECRET, config.WORKFLOW_INSTANCE_ID, config.OUTPUT_DIR)
+        from clients import KeySecretAuthProvider, SessionManager, TokenAuthProvider
 
-    extractor()
+        if config.SESSION_TOKEN:
+            auth_provider = TokenAuthProvider(config.API_HOST, config.SESSION_TOKEN, config.REFRESH_TOKEN)
+        elif config.API_KEY and config.API_SECRET:
+            auth_provider = KeySecretAuthProvider(config.API_HOST, config.API_KEY, config.API_SECRET)
+        else:
+            raise RuntimeError("no authentication credentials provided: set SESSION_TOKEN or PENNSIEVE_API_KEY/PENNSIEVE_API_SECRET")
+
+        session_manager = SessionManager(auth_provider)
+
+        importer = import_timeseries(config.API_HOST, config.API_HOST2, session_manager, config.WORKFLOW_INSTANCE_ID, config.OUTPUT_DIR)
+    extract_annotations()

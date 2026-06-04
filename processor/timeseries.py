@@ -1,41 +1,28 @@
 import os
 import json
-import boto3
 import requests
 
+from clients import KeySecretAuthProvider, TokenAuthProvider
+
+API_HOST = os.getenv("PENNSIEVE_API_HOST", "https://api.pennsieve.net")
+API_HOST2 = os.getenv("PENNSIEVE_API_HOST2", "https://api2.pennsieve.net")
+
 def authenticate():
+    session_token = os.getenv("SESSION_TOKEN")
+    refresh_token = os.getenv("REFRESH_TOKEN")
+    if session_token:
+        return TokenAuthProvider(API_HOST, session_token, refresh_token).get_session_token()
 
-    PENNSIEVE_URL = "https://api.pennsieve.io"
-    email = os.getenv("PENNSIEVE_API_KEY")
-    password = os.getenv("PENNSIEVE_API_SECRET")
+    api_key = os.getenv("PENNSIEVE_API_KEY")
+    api_secret = os.getenv("PENNSIEVE_API_SECRET")
+    if api_key and api_secret:
+        return KeySecretAuthProvider(API_HOST, api_key, api_secret).get_session_token()
 
-    r = requests.get(f"{PENNSIEVE_URL}/authentication/cognito-config")
-    r.raise_for_status()
-
-    cognito_app_client_id = r.json()["tokenPool"]["appClientId"]
-    cognito_region = r.json()["tokenPool"]["region"]
-
-    cognito_client = boto3.client(
-        "cognito-idp",
-        region_name=cognito_region,
-        aws_access_key_id=email,
-        aws_secret_access_key=password,
-    )
-
-    login_response = cognito_client.initiate_auth(
-        AuthFlow="USER_PASSWORD_AUTH",
-        AuthParameters={"USERNAME": email, "PASSWORD": password},
-        ClientId=cognito_app_client_id
-    )
-
-    api_key = login_response["AuthenticationResult"]["AccessToken"]
-    return api_key
+    raise RuntimeError("no authentication credentials provided: set SESSION_TOKEN or PENNSIEVE_API_KEY/PENNSIEVE_API_SECRET")
 
 def getWorkflowData(session_key):
     integration_id = os.getenv("INTEGRATION_ID")
-    PENNSIEVE_URL_2 = "https://api2.pennsieve.io"
-
-    r = requests.get(f"{PENNSIEVE_URL_2}/workflows/instances/{integration_id}", headers={"Authorization": f"Bearer {session_key}"})
+    r = requests.get(f"{API_HOST2}/compute/workflows/runs/{integration_id}", headers={"Authorization": f"Bearer {session_key}"})
 
     return json.loads(r.text)
 
@@ -59,7 +46,7 @@ def getBDFPackageId(session_key, dataset_id):
     '''
 
     # Construct URL
-    url = f"https://api.pennsieve.io/datasets/{dataset_id}/packages"
+    url = f"{API_HOST}/datasets/{dataset_id}/packages"
 
     headers = {
         "Authorization": f"Bearer {session_key}",
@@ -105,7 +92,7 @@ def createAnnotationLayer(session_key, bdf_package_id):
     from datetime import datetime
     now = datetime.now()
 
-    url = f"https://api.pennsieve.io/timeseries/{bdf_package_id}/layers"
+    url = f"{API_HOST}/timeseries/{bdf_package_id}/layers"
     params = {
         "name": f"Imported Annotations {now}",
         "description": "Annotations autoimported by `https://github.com/Pennsieve/bdf-annotations-extractor`",
@@ -132,7 +119,7 @@ def getChannels(session_key, timeSeriesPackageID):
     '''
 
 
-    url = f"https://api.pennsieve.io/timeseries/{timeSeriesPackageID}/channels"
+    url = f"{API_HOST}/timeseries/{timeSeriesPackageID}/channels"
     headers = {
         "Authorization": f"Bearer {session_key}",
         "Content-Type": "application/json"
@@ -164,7 +151,7 @@ def createAnnotation(session_key,channels,timeseriesId,timeseriesIdPackageName,a
         dict: The created annotation object
     '''
 
-    url = f"https://api.pennsieve.io/timeseries/{timeseriesIdPackageName}/layers/{timeseriesId}/annotations?startAtEpoch=true"
+    url = f"{API_HOST}/timeseries/{timeseriesIdPackageName}/layers/{timeseriesId}/annotations?startAtEpoch=true"
     headers = {
         "Authorization": f"Bearer {session_key}",
         "Content-Type": "application/json"

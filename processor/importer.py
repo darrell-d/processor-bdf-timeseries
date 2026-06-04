@@ -6,9 +6,7 @@ import re
 import requests
 import uuid
 
-from clients import AuthenticationClient, SessionManager
 from clients import ImportClient, ImportFile
-from clients import SessionManager
 from clients import TimeSeriesClient
 from clients import WorkflowClient, WorkflowInstance
 
@@ -31,7 +29,7 @@ for import into Pennsieve data ecosystem.
 # easily able to handle > 3 processors
 """
 
-def import_timeseries(api_host, api2_host, api_key, api_secret, workflow_instance_id, file_directory):
+def import_timeseries(api_host, api2_host, session_manager, workflow_instance_id, file_directory):
     # gather all the time series files from the output directory
     timeseries_data_files = []
     timeseries_channel_files = []
@@ -47,18 +45,30 @@ def import_timeseries(api_host, api2_host, api_key, api_secret, workflow_instanc
         log.info("no time series channels or data")
         return None
 
-    # authentication against the Pennsieve API
-    authorization_client = AuthenticationClient(api_host)
-    session_manager = SessionManager(authorization_client, api_key, api_secret)
-
     # fetch workflow instance for parameters (dataset_id, package_id, etc.)
     workflow_client = WorkflowClient(api2_host, session_manager)
     workflow_instance  = workflow_client.get_workflow_instance(workflow_instance_id)
 
     # constraint until we implement (upstream) performing imports over directories
     # and specifying how to group time series files together into an imported package
-    assert len(workflow_instance.package_ids) == 1, "NWB post processor only supports a single package for import"
-    package_id = workflow_instance.package_ids[0]
+    log.info(f"workflow_instance_id={workflow_instance.id} fetched workflow instance with dataset_id={workflow_instance.dataset_id} and package_ids={workflow_instance.package_ids}")
+    package_id = None
+    for pkg in workflow_instance.package_ids:
+        url = f"{api_host}/packages/{pkg}?include=1&includeAncestors=true&startAtEpoch=false&limit=100&offset=0"
+        headers = {
+            "accept": "*/*",
+            "Authorization": f"Bearer {session_manager.session_token}"
+            }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        response_json = response.json()
+        response_content = response_json.get("content", {})
+        if response_content.get("name").endswith("bdf"):
+           package_id = pkg 
+
+    log.info(f"workflow_instance_id={workflow_instance.id} package_id={pkg}")
+    
+    # package_id = workflow_instance.package_ids[0]
 
     log.info(f"dataset_id={workflow_instance.dataset_id} package_id={package_id} starting import of time series files")
 

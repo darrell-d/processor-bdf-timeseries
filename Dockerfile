@@ -12,5 +12,9 @@ COPY processor/ /processor
 
 ENV PYTHONPATH="/"
 
+# pynwb creates a cache dir at import time. On Fargate the task runs as a
+# non-root user with HOME unset, so ~/.cache resolves to /.cache (not writable).
+# Point platformdirs at /tmp (world-writable, UID-agnostic).
 ENV XDG_CACHE_HOME="/tmp/.cache"
+
 CMD ["python3.12", "-m", "processor.main"]
