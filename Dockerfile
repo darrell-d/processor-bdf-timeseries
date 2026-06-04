@@ -12,4 +12,5 @@ COPY processor/ /processor
 
 ENV PYTHONPATH="/"
 
+ENV XDG_CACHE_HOME="/tmp/.cache"
 CMD ["python3.12", "-m", "processor.main"]
